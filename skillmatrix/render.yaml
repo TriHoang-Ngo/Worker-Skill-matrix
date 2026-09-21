@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: skillmatrix-api
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: ADMIN_TOKEN
+        sync: false          # set this yourself in the Render dashboard -- your edit password
+      - key: DATABASE_URL
+        sync: false          # optional: point at a managed Postgres DSN; omit to use SQLite

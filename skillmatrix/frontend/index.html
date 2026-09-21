@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Skill Matrix — Plant Floor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root{
+    --steel-900:#12202e;
+    --steel-800:#1b3040;
+    --steel-700:#294a5f;
+    --steel-100:#eef2f5;
+    --paper:#f6f4ef;
+    --ink:#152029;
+    --ink-soft:#4c5d68;
+    --line:#d9dfe2;
+    --safety-yellow:#f2b705;
+    --alarm-red:#c23b32;
+    /* proficiency level scale, muted-industrial rather than candy */
+    --lv0:#ffffff;
+    --lv1:#f6c6bd;
+    --lv2:#f7dd8a;
+    --lv3:#a9d3a0;
+    --lv4:#3f7a4d;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Archivo',system-ui,sans-serif;margin:0;}
+  button{font-family:inherit;}
+
+  .app-shell{min-height:100vh;display:flex;flex-direction:column;}
+
+  .topbar{background:var(--steel-900);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:3px solid var(--safety-yellow);}
+  .topbar .brand{display:flex;align-items:center;gap:10px;}
+  .topbar .brand .mark{width:34px;height:34px;background:var(--safety-yellow);color:var(--steel-900);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;font-family:'Archivo',sans-serif;}
+  .topbar h1{font-size:18px;font-weight:700;letter-spacing:0.2px;}
+  .topbar .sub{font-size:12px;color:#a9c2d1;margin-top:1px;}
+
+  .tabs{display:flex;gap:2px;}
+  .tabs button{background:var(--steel-800);color:#cfe0ea;border:none;padding:9px 16px;font-size:13.5px;font-weight:600;cursor:pointer;}
+  .tabs button.active{background:var(--safety-yellow);color:var(--steel-900);}
+
+  .content{flex:1;padding:18px 20px 40px;max-width:1500px;width:100%;margin:0 auto;}
+
+  /* ---- Filter bar ---- */
+  .filterbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  .filterbar select, .filterbar input{border:1px solid var(--line);background:#fff;padding:9px 11px;font-size:14px;border-radius:2px;color:var(--ink);}
+  .filterbar input[type="search"]{min-width:220px;}
+  .filterbar .spacer{flex:1;}
+  .btn{border:1px solid var(--steel-700);background:var(--steel-800);color:#fff;padding:9px 14px;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:2px;}
+  .btn:hover{background:var(--steel-700);}
+  .btn.ghost{background:#fff;color:var(--steel-800);}
+  .btn.ghost:hover{background:var(--steel-100);}
+
+  /* ---- Matrix grid ---- */
+  .grid-wrap{border:1px solid var(--line);background:#fff;overflow:auto;max-height:72vh;}
+  table.matrix{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%;}
+  table.matrix thead th{position:sticky;top:0;background:var(--steel-800);color:#fff;padding:8px 6px;font-weight:600;font-size:11.5px;text-align:center;border-left:1px solid #2a4457;z-index:2;white-space:nowrap;}
+  table.matrix thead tr.cat-row th{background:var(--steel-900);font-size:10px;letter-spacing:0.3px;color:#9fc2d6;padding:5px 6px;}
+  table.matrix thead th.corner{position:sticky;left:0;top:0;z-index:4;background:var(--steel-900);text-align:left;min-width:230px;}
+  table.matrix tbody th{position:sticky;left:0;background:#fff;border-right:2px solid var(--steel-800);padding:8px 10px;text-align:left;white-space:nowrap;z-index:1;font-weight:600;}
+  table.matrix tbody th .dept{display:block;font-weight:400;color:var(--ink-soft);font-size:11px;}
+  table.matrix tbody tr:nth-child(even) th{background:#fbfaf7;}
+  table.matrix tbody tr:nth-child(even) td{background-color:color-mix(in srgb, var(--cellcolor) 100%, #fbfaf7 0%);}
+  table.matrix td{border-left:1px solid var(--line);border-bottom:1px solid var(--line);padding:0;text-align:center;}
+  .cell-btn{width:56px;height:38px;border:none;background:var(--cellcolor);cursor:pointer;font-weight:700;font-size:13px;color:var(--ink);display:flex;align-items:center;justify-content:center;}
+  .cell-btn:hover{outline:2px solid var(--steel-800);outline-offset:-2px;}
+  .cell-btn:focus-visible{outline:2px solid var(--steel-800);}
+
+  .legend{display:flex;gap:14px;align-items:center;margin:12px 2px 0;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);}
+  .legend .swatch{display:inline-flex;align-items:center;gap:5px;}
+  .legend .sq{width:14px;height:14px;border:1px solid var(--line);display:inline-block;}
+
+  /* ---- Editor popover ---- */
+  .overlay{position:fixed;inset:0;background:rgba(18,32,46,0.45);display:flex;align-items:center;justify-content:center;z-index:50;}
+  .editor{background:#fff;padding:20px 22px;width:300px;border-top:4px solid var(--safety-yellow);}
+  .editor h3{font-size:15px;margin-bottom:2px;}
+  .editor .who{font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;}
+  .lvl-options{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+  .lvl-opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);cursor:pointer;background:#fff;text-align:left;font-size:13.5px;}
+  .lvl-opt .sq{width:16px;height:16px;flex-shrink:0;border:1px solid rgba(0,0,0,0.15);}
+  .lvl-opt.selected{border-color:var(--steel-800);box-shadow:inset 0 0 0 1px var(--steel-800);}
+  .editor-actions{display:flex;justify-content:flex-end;gap:8px;}
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+  .field label{font-size:12px;color:var(--ink-soft);}
+  .field input, .field select{border:1px solid var(--line);background:#fff;padding:8px 10px;font-size:13.5px;}
+  table.plain{width:100%;border-collapse:collapse;font-size:13px;}
+  table.plain th{text-align:left;padding:7px 10px;font-size:11.5px;color:var(--ink-soft);border-bottom:2px solid var(--steel-800);}
+  table.plain td{padding:8px 10px;border-bottom:1px solid var(--line);}
+  .row-actions{display:flex;gap:6px;}
+  .row-actions button{padding:4px 9px;font-size:12px;}
+
+  /* ---- Dashboard ---- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:22px;}
+  .card{background:#fff;border:1px solid var(--line);border-left:4px solid var(--steel-800);padding:14px 16px;}
+  .card .num{font-family:'Archivo',sans-serif;font-size:28px;font-weight:800;color:var(--steel-900);}
+  .card .lbl{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+
+  .panel{background:#fff;border:1px solid var(--line);margin-bottom:20px;}
+  .panel .panel-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .panel .panel-h h2{font-size:15px;}
+  .panel .panel-b{padding:14px 16px;}
+
+  .bar-row{display:grid;grid-template-columns:170px 1fr 60px;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;}
+  .bar-track{background:#eef1f2;height:16px;position:relative;}
+  .bar-fill{height:100%;background:var(--steel-700);}
+
+  table.alerts{width:100%;border-collapse:collapse;font-size:13px;}
+  table.alerts th{text-align:left;padding:7px 10px;font-size:11.5px;color:var(--ink-soft);border-bottom:2px solid var(--steel-800);text-transform:none;}
+  table.alerts td{padding:8px 10px;border-bottom:1px solid var(--line);}
+  .sev{padding:2px 8px;font-size:11px;font-weight:700;border-radius:2px;}
+  .sev.critical{background:#f7ddd8;color:var(--alarm-red);}
+  .sev.warning{background:#fbeec7;color:#8a6a06;}
+
+  .empty{padding:30px;text-align:center;color:var(--ink-soft);font-size:14px;}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--steel-900);color:#fff;padding:10px 16px;font-size:13.5px;z-index:60;border-left:4px solid var(--safety-yellow);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const {useState, useEffect, useMemo, useCallback, useRef} = React;
+
+// Point this at your running FastAPI backend (see backend/main.py -- default port 8000).
+const API_BASE = window.SKILL_MATRIX_API_BASE || "http://localhost:8000";
+const TOKEN_STORAGE_KEY = "skillmatrix_admin_token";
+
+const LEVELS = [
+  {level:0, label:"L0 — Not trained", color:"var(--lv0)"},
+  {level:1, label:"L1 — Awareness, needs supervision", color:"var(--lv1)"},
+  {level:2, label:"L2 — Basic, occasional support", color:"var(--lv2)"},
+  {level:3, label:"L3 — Proficient, independent", color:"var(--lv3)"},
+  {level:4, label:"L4 — Expert, can train others", color:"var(--lv4)"},
+];
+const levelColor = (lvl) => (LEVELS[lvl] || LEVELS[0]).color;
+
+function getToken() { return localStorage.getItem(TOKEN_STORAGE_KEY) || ""; }
+function setToken(t) { t ? localStorage.setItem(TOKEN_STORAGE_KEY, t) : localStorage.removeItem(TOKEN_STORAGE_KEY); }
+
+async function api(path, opts = {}) {
+  const isWrite = opts.method && opts.method !== "GET";
+  const isFormData = opts.body instanceof FormData;
+  const headers = {...(isFormData ? {} : {"Content-Type": "application/json"}), ...(opts.headers || {})};
+  if (isWrite) {
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+  const res = await fetch(API_BASE + path, {...opts, headers});
+  if (res.status === 401) {
+    setToken(""); // clear a stale/wrong token so the login prompt reappears
+    throw new Error("Not signed in as admin, or the password was wrong. Click \"Admin sign-in\" and try again.");
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function Toast({message, onDone}) {
+  useEffect(() => { const t = setTimeout(onDone, 2600); return () => clearTimeout(t); }, [message]);
+  if (!message) return null;
+  return <div className="toast">{message}</div>;
+}
+
+function CellEditor({cell, onClose, onSave}) {
+  const [selected, setSelected] = useState(cell.proficiency_level);
+  const [saving, setSaving] = useState(false);
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="editor" onClick={(e) => e.stopPropagation()}>
+        <h3>{cell.skillName}</h3>
+        <div className="who">{cell.employeeName} · {cell.department}</div>
+        <div className="lvl-options">
+          {LEVELS.map(l => (
+            <button key={l.level} className={"lvl-opt" + (selected === l.level ? " selected" : "")}
+              onClick={() => setSelected(l.level)}>
+              <span className="sq" style={{background:l.color}}></span>
+              {l.label}
+            </button>
+          ))}
+        </div>
+        <div className="editor-actions">
+          <button className="btn ghost" onClick={onClose}>Cancel</button>
+          <button className="btn" disabled={saving} onClick={async () => {
+            setSaving(true);
+            try {
+              await onSave(selected);
+              onClose();
+            } catch (e) {
+              alert("Could not save: " + e.message);
+            } finally {
+              setSaving(false);
+            }
+          }}>{saving ? "Saving…" : "Save level"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddWorkerDialog({onClose, onCreated}) {
+  const [form, setForm] = useState({
+    employee_id:"", full_name:"", employee_type:"", join_date:"",
+    department:"", position:"", line:"",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm({...form, [k]: e.target.value});
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="editor" onClick={e => e.stopPropagation()} style={{width:"360px"}}>
+        <h3>Add worker</h3>
+        <div className="who">Creates a new employee record</div>
+        <div className="field"><label>ID Code</label><input value={form.employee_id} onChange={set("employee_id")} placeholder="EMP-0008" /></div>
+        <div className="field"><label>Full Name</label><input value={form.full_name} onChange={set("full_name")} /></div>
+        <div className="field">
+          <label>Type</label>
+          <select value={form.employee_type} onChange={set("employee_type")}>
+            <option value="">— select —</option>
+            <option value="FTE">FTE</option>
+            <option value="LO">LO</option>
+          </select>
+        </div>
+        <div className="field"><label>Join date</label><input type="date" value={form.join_date} onChange={set("join_date")} /></div>
+        <div className="field"><label>Department</label><input value={form.department} onChange={set("department")} /></div>
+        <div className="field"><label>Title</label><input value={form.position} onChange={set("position")} /></div>
+        <div className="field"><label>Line</label><input value={form.line} onChange={set("line")} /></div>
+        <div className="editor-actions">
+          <button className="btn ghost" onClick={onClose}>Cancel</button>
+          <button className="btn" disabled={saving || !form.employee_id || !form.full_name} onClick={async () => {
+            setSaving(true);
+            try {
+              const payload = {...form, employee_type: form.employee_type || null, join_date: form.join_date || null, line: form.line || null};
+              await api("/api/employees", {method: "POST", body: JSON.stringify(payload)});
+              onCreated(form.full_name);
+              onClose();
+            } catch (e) { alert("Could not save: " + e.message); }
+            finally { setSaving(false); }
+          }}>{saving ? "Saving…" : "Add worker"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MatrixView({toast}) {
+  const [matrix, setMatrix] = useState(null);
+  const [departments, setDepartments] = useState([]);
+  const [dept, setDept] = useState("");
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const q = dept ? `?department=${encodeURIComponent(dept)}` : "";
+      const data = await api(`/api/matrix${q}`);
+      setMatrix(data);
+      if (!dept) {
+        setDepartments([...new Set(data.rows.map(r => r.department))].sort());
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [dept]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filteredRows = useMemo(() => {
+    if (!matrix) return [];
+    const s = search.trim().toLowerCase();
+    if (!s) return matrix.rows;
+    return matrix.rows.filter(r => r.full_name.toLowerCase().includes(s) || r.employee_id.toLowerCase().includes(s));
+  }, [matrix, search]);
+
+  // group skill columns by category for the two-row header
+  const categoryGroups = useMemo(() => {
+    if (!matrix) return [];
+    const groups = [];
+    let cur = null;
+    for (const s of matrix.skills) {
+      if (!cur || cur.category !== s.skill_category) {
+        cur = {category: s.skill_category, skills: []};
+        groups.push(cur);
+      }
+      cur.skills.push(s);
+    }
+    return groups;
+  }, [matrix]);
+
+  const saveCell = async (row, skillId, level) => {
+    await api("/api/assessments", {
+      method: "PUT",
+      body: JSON.stringify({employee_id: row.employee_id, skill_id: skillId, proficiency_level: level, assessed_by: "floor-supervisor"}),
+    });
+    setMatrix(prev => {
+      const rows = prev.rows.map(r => {
+        if (r.employee_id !== row.employee_id) return r;
+        return {...r, cells: r.cells.map(c => c.skill_id === skillId ? {...c, proficiency_level: level} : c)};
+      });
+      return {...prev, rows};
+    });
+    toast(`Saved: ${row.full_name} — ${skillId} → L${level}`);
+  };
+
+  return (
+    <div>
+      <div className="filterbar">
+        <select value={dept} onChange={e => setDept(e.target.value)}>
+          <option value="">All lines / departments</option>
+          {departments.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <input type="search" placeholder="Search worker name or ID…" value={search} onChange={e => setSearch(e.target.value)} />
+        <div className="spacer"></div>
+        <button className="btn ghost" onClick={() => setShowAdd(true)}>+ Add worker</button>
+        <input ref={fileInputRef} type="file" accept=".csv" style={{display:"none"}}
+          onChange={async e => {
+            const file = e.target.files[0]; e.target.value = "";
+            if (!file) return;
+            const fd = new FormData(); fd.append("file", file);
+            try {
+              const res = await api("/api/employees/import", {method: "POST", body: fd});
+              toast(`Import complete — ${res.created} created, ${res.updated} updated`);
+              load();
+            } catch (err) { alert("Import failed: " + err.message); }
+          }} />
+        <button className="btn ghost" onClick={() => fileInputRef.current.click()}>Import CSV</button>
+        <button className="btn ghost" onClick={load}>Refresh</button>
+      </div>
+
+      {showAdd && (
+        <AddWorkerDialog onClose={() => setShowAdd(false)} onCreated={(name) => { toast(`Added worker ${name}`); load(); }} />
+      )}
+
+      {loading && <div className="empty">Loading skill matrix…</div>}
+      {error && <div className="empty">Could not reach the API at {API_BASE} — {error}</div>}
+
+      {!loading && !error && matrix && (
+        <React.Fragment>
+          <div className="grid-wrap">
+            <table className="matrix">
+              <thead>
+                <tr className="cat-row">
+                  <th className="corner" rowSpan="2">Worker</th>
+                  {categoryGroups.map(g => (
+                    <th key={g.category} colSpan={g.skills.length}>{g.category}</th>
+                  ))}
+                </tr>
+                <tr>
+                  {matrix.skills.map(s => (
+                    <th key={s.skill_id} title={s.description || s.skill_name}>{s.skill_name}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRows.map(row => (
+                  <tr key={row.employee_id}>
+                    <th>
+                      {row.full_name}
+                      <span className="dept">{row.employee_id} · {row.position}</span>
+                    </th>
+                    {row.cells.map(cell => (
+                      <td key={cell.skill_id}>
+                        <button
+                          className="cell-btn"
+                          style={{"--cellcolor": levelColor(cell.proficiency_level)}}
+                          onClick={() => setEditing({
+                            employeeId: row.employee_id, employeeName: row.full_name,
+                            department: row.department, skillId: cell.skill_id,
+                            skillName: matrix.skills.find(s => s.skill_id === cell.skill_id).skill_name,
+                            proficiency_level: cell.proficiency_level, row,
+                          })}
+                        >{cell.proficiency_level}</button>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {filteredRows.length === 0 && (
+                  <tr><td colSpan={matrix.skills.length + 1} className="empty">No workers match this filter.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="legend">
+            <strong>Proficiency:</strong>
+            {LEVELS.map(l => (
+              <span className="swatch" key={l.level}><span className="sq" style={{background:l.color}}></span>{l.label}</span>
+            ))}
+          </div>
+        </React.Fragment>
+      )}
+
+      {editing && (
+        <CellEditor
+          cell={{proficiency_level: editing.proficiency_level, skillName: editing.skillName, employeeName: editing.employeeName, department: editing.department}}
+          onClose={() => setEditing(null)}
+          onSave={(level) => saveCell(editing.row, editing.skillId, level)}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddSkillForm({onCreated, existingCategories}) {
+  const [form, setForm] = useState({skill_id:"", skill_name:"", skill_category:"", is_critical:false});
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm({...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value});
+  const DEFAULT_CATS = ["Operation", "Maintenance", "Quality", "Safety"];
+  const suggestions = [...new Set([...DEFAULT_CATS, ...(existingCategories || [])])].sort();
+  return (
+    <div style={{display:"flex", gap:"10px", flexWrap:"wrap", alignItems:"flex-end", marginBottom:"14px", padding:"12px", border:"1px dashed var(--line)"}}>
+      <div className="field" style={{minWidth:"120px"}}><label>Skill ID</label><input value={form.skill_id} onChange={set("skill_id")} placeholder="SK-009" /></div>
+      <div className="field" style={{minWidth:"200px"}}><label>Skill name</label><input value={form.skill_name} onChange={set("skill_name")} placeholder="e.g. Robotic Welding" /></div>
+      <div className="field" style={{minWidth:"170px"}}>
+        <label>Category (type a new one or pick existing)</label>
+        <input list="skillCategoryOptions" value={form.skill_category} onChange={set("skill_category")} placeholder="e.g. Logistics" />
+        <datalist id="skillCategoryOptions">
+          {suggestions.map(c => <option key={c} value={c} />)}
+        </datalist>
+      </div>
+      <label style={{display:"flex", alignItems:"center", gap:"6px", fontSize:"13px", paddingBottom:"8px"}}>
+        <input type="checkbox" checked={form.is_critical} onChange={set("is_critical")} /> Critical skill
+      </label>
+      <button className="btn" disabled={saving || !form.skill_id || !form.skill_name || !form.skill_category.trim()} onClick={async () => {
+        setSaving(true);
+        try {
+          await api("/api/skills", {method: "POST", body: JSON.stringify({...form, skill_category: form.skill_category.trim()})});
+          onCreated(form.skill_name);
+          setForm({skill_id:"", skill_name:"", skill_category:"", is_critical:false});
+        } catch (e) { alert("Could not save: " + e.message); }
+        finally { setSaving(false); }
+      }}>{saving ? "Adding…" : "+ Add skill"}</button>
+    </div>
+  );
+}
+
+function ManageView({toast}) {
+  const [skills, setSkills] = useState(null);
+  const [employees, setEmployees] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadSkills = useCallback(async () => {
+    try { setSkills(await api("/api/skills")); } catch (e) { setError(e.message); }
+  }, []);
+  const loadEmployees = useCallback(async () => {
+    try { setEmployees(await api("/api/employees?active_only=false")); } catch (e) { setError(e.message); }
+  }, []);
+
+  useEffect(() => { loadSkills(); loadEmployees(); }, [loadSkills, loadEmployees]);
+
+  if (error) return <div className="empty">Could not reach the API at {API_BASE} — {error}</div>;
+  if (!skills || !employees) return <div className="empty">Loading…</div>;
+
+  const sortedSkills = [...skills].sort((a, b) => (a.skill_category + a.skill_name).localeCompare(b.skill_category + b.skill_name));
+  const sortedEmployees = [...employees].sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+  return (
+    <div>
+      <div className="panel">
+        <div className="panel-h"><h2>Skill catalog</h2>
+          <span style={{fontSize:"12px", color:"var(--ink-soft)"}}>{sortedSkills.length} skills — deleting one also clears its recorded levels</span></div>
+        <div className="panel-b">
+          <AddSkillForm existingCategories={[...new Set(skills.map(s => s.skill_category))]} onCreated={(name) => { toast(`Added skill ${name}`); loadSkills(); }} />
+          <div style={{overflowX:"auto"}}>
+            <table className="plain">
+              <thead><tr><th>Skill</th><th>Category</th><th>Critical</th><th></th></tr></thead>
+              <tbody>
+                {sortedSkills.map(s => (
+                  <tr key={s.skill_id}>
+                    <td>{s.skill_name} <span style={{color:"var(--ink-soft)"}}>({s.skill_id})</span></td>
+                    <td>{s.skill_category}</td>
+                    <td>{s.is_critical ? "Yes" : "—"}</td>
+                    <td className="row-actions">
+                      <button className="btn ghost" onClick={async () => {
+                        if (!confirm(`Remove "${s.skill_name}" and all recorded levels for it?`)) return;
+                        try { await api(`/api/skills/${encodeURIComponent(s.skill_id)}`, {method: "DELETE"}); toast(`Removed skill ${s.skill_name}`); loadSkills(); }
+                        catch (e) { alert("Could not remove: " + e.message); }
+                      }}>Remove</button>
+                    </td>
+                  </tr>
+                ))}
+                {sortedSkills.length === 0 && <tr><td colSpan="4" className="empty">No skills yet — add one above.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-h"><h2>Employees</h2>
+          <span style={{fontSize:"12px", color:"var(--ink-soft)"}}>{sortedEmployees.filter(e => e.is_active).length} active</span></div>
+        <div className="panel-b">
+          <div style={{marginBottom:"14px"}}>
+            <button className="btn ghost" onClick={() => setShowAdd(true)}>+ Add worker</button>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table className="plain">
+              <thead><tr><th>ID Code</th><th>Full Name</th><th>Type</th><th>Join date</th><th>Department</th><th>Title</th><th>Line</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {sortedEmployees.map(e => (
+                  <tr key={e.employee_id} style={{opacity: e.is_active ? 1 : 0.55}}>
+                    <td>{e.employee_id}</td>
+                    <td>{e.full_name}</td>
+                    <td>{e.employee_type || "—"}</td>
+                    <td>{e.join_date || "—"}</td>
+                    <td>{e.department}</td>
+                    <td>{e.position}</td>
+                    <td>{e.line || "—"}</td>
+                    <td>{e.is_active ? "Active" : "Inactive"}</td>
+                    <td className="row-actions">
+                      <button className="btn ghost" onClick={async () => {
+                        try {
+                          await api(`/api/employees/${encodeURIComponent(e.employee_id)}`, {method: "PUT", body: JSON.stringify({is_active: !e.is_active})});
+                          toast(e.is_active ? `Deactivated ${e.full_name}` : `Reactivated ${e.full_name}`);
+                          loadEmployees();
+                        } catch (err) { alert("Could not update: " + err.message); }
+                      }}>{e.is_active ? "Deactivate" : "Reactivate"}</button>
+                      <button className="btn ghost" onClick={async () => {
+                        if (!confirm(`Permanently remove ${e.full_name} and their recorded levels?`)) return;
+                        try {
+                          await api(`/api/employees/${encodeURIComponent(e.employee_id)}?hard=true`, {method: "DELETE"});
+                          toast(`Removed ${e.full_name}`);
+                          loadEmployees();
+                        } catch (err) { alert("Could not remove: " + err.message); }
+                      }}>Remove</button>
+                    </td>
+                  </tr>
+                ))}
+                {sortedEmployees.length === 0 && <tr><td colSpan="9" className="empty">No workers yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {showAdd && (
+        <AddWorkerDialog onClose={() => setShowAdd(false)} onCreated={(name) => { toast(`Added worker ${name}`); loadEmployees(); }} />
+      )}
+    </div>
+  );
+}
+
+function DashboardView({toast}) {
+  const [coverage, setCoverage] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [cov, bn] = await Promise.all([
+        api("/api/analytics/coverage"),
+        api("/api/analytics/bottlenecks?threshold=1&level_floor=3&by_department=true"),
+      ]);
+      setCoverage(cov);
+      setAlerts(bn);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const criticalCount = alerts.filter(a => a.severity === "critical").length;
+  const avgCoverage = coverage.length ? Math.round(coverage.reduce((s, c) => s + c.coverage_pct, 0) / coverage.length) : 0;
+  const totalHeadcount = coverage.reduce((s, c) => s + c.headcount, 0);
+
+  const download = (path) => { window.open(API_BASE + path, "_blank"); };
+
+  if (loading) return <div className="empty">Crunching skill gap analytics…</div>;
+  if (error) return <div className="empty">Could not reach the API at {API_BASE} — {error}</div>;
+
+  return (
+    <div>
+      <div className="cards">
+        <div className="card"><div className="num">{avgCoverage}%</div><div className="lbl">Plant-wide avg. coverage (target L3)</div></div>
+        <div className="card"><div className="num">{totalHeadcount}</div><div className="lbl">Active workers tracked</div></div>
+        <div className="card" style={{borderLeftColor: criticalCount ? "var(--alarm-red)" : "var(--steel-800)"}}>
+          <div className="num">{criticalCount}</div><div className="lbl">Critical-skill bottlenecks</div>
+        </div>
+        <div className="card"><div className="num">{alerts.length}</div><div className="lbl">Total bottleneck alerts (≤1 qualified worker)</div></div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-h">
+          <h2>Skill coverage by production line</h2>
+          <span style={{fontSize:"12px", color:"var(--ink-soft)"}}>Target: every worker at Level 3+ on every tracked skill</span>
+        </div>
+        <div className="panel-b">
+          {coverage.map(c => (
+            <div className="bar-row" key={c.department}>
+              <span>{c.department} <span style={{color:"var(--ink-soft)"}}>({c.headcount})</span></span>
+              <div className="bar-track"><div className="bar-fill" style={{width: c.coverage_pct + "%", background: c.coverage_pct < 50 ? "var(--alarm-red)" : c.coverage_pct < 75 ? "var(--safety-yellow)" : "var(--lv4)"}}></div></div>
+              <strong>{c.coverage_pct}%</strong>
+            </div>
+          ))}
+          {coverage.length === 0 && <div className="empty">No department data yet.</div>}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-h">
+          <h2>Bottleneck alerts</h2>
+          <span style={{fontSize:"12px", color:"var(--ink-soft)"}}>Skills with ≤1 worker at Level 3+ per line</span>
+        </div>
+        <div className="panel-b" style={{padding:0}}>
+          <table className="alerts">
+            <thead><tr><th>Skill</th><th>Category</th><th>Line</th><th>Qualified (L3+)</th><th>Severity</th></tr></thead>
+            <tbody>
+              {alerts.map((a, i) => (
+                <tr key={i}>
+                  <td>{a.skill_name}</td>
+                  <td>{a.skill_category}</td>
+                  <td>{a.department || "Plant-wide"}</td>
+                  <td>{a.qualified_worker_count}</td>
+                  <td><span className={"sev " + a.severity}>{a.severity}</span></td>
+                </tr>
+              ))}
+              {alerts.length === 0 && <tr><td colSpan="5" className="empty">No bottlenecks detected.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="filterbar" style={{justifyContent:"flex-end"}}>
+        <button className="btn ghost" onClick={() => download("/api/analytics/report/excel")}>Export Excel summary</button>
+        <button className="btn" onClick={() => download("/api/analytics/report/pdf")}>Export PDF report</button>
+      </div>
+    </div>
+  );
+}
+
+function AdminBar({toast}) {
+  const [signedIn, setSignedIn] = useState(!!getToken());
+
+  const signIn = () => {
+    const pw = prompt("Admin password (set as ADMIN_TOKEN on the server):");
+    if (pw === null) return;
+    if (!pw.trim()) { alert("Password can't be empty."); return; }
+    setToken(pw.trim());
+    setSignedIn(true);
+    toast("Signed in as admin — edits will now save.");
+  };
+  const signOut = () => {
+    setToken("");
+    setSignedIn(false);
+    toast("Signed out — you can still view, editing is now blocked.");
+  };
+
+  return signedIn
+    ? <button className="btn ghost" onClick={signOut} style={{background:"transparent", color:"#cfe0ea", borderColor:"#3a5568"}}>Admin: signed in (sign out)</button>
+    : <button className="btn ghost" onClick={signIn} style={{background:"transparent", color:"#cfe0ea", borderColor:"#3a5568"}}>Admin sign-in</button>;
+}
+
+function App() {
+  const [tab, setTab] = useState("matrix");
+  const [toastMsg, setToastMsg] = useState("");
+  const toast = (m) => setToastMsg(m);
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="mark">SM</span>
+          <div>
+            <h1>Worker Skill Matrix</h1>
+            <div className="sub">Plant floor operations · connected to {API_BASE}</div>
+          </div>
+        </div>
+        <nav className="tabs">
+          <button className={tab === "matrix" ? "active" : ""} onClick={() => setTab("matrix")}>Skill Matrix</button>
+          <button className={tab === "dashboard" ? "active" : ""} onClick={() => setTab("dashboard")}>Gap Analysis</button>
+          <button className={tab === "manage" ? "active" : ""} onClick={() => setTab("manage")}>Manage</button>
+        </nav>
+        <AdminBar toast={toast} />
+      </header>
+      <main className="content">
+        {tab === "matrix" && <MatrixView toast={toast} />}
+        {tab === "dashboard" && <DashboardView toast={toast} />}
+        {tab === "manage" && <ManageView toast={toast} />}
+      </main>
+      <Toast message={toastMsg} onDone={() => setToastMsg("")} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
